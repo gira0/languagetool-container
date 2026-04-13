@@ -67,7 +67,7 @@ jobs:
         registry: ${{ env.REGISTRY }}/${{ env.CONTAINER_REPO }}
 
     - name: Generate artifact attestation and push
-      uses: actions/attest-build-provenance@v1
+      uses: actions/attest-build-provenance@v4
       with:
         subject-name: ${{ env.REGISTRY }}/${{ env.CONTAINER_REPO }}/${{ steps.build-image.outputs.image }}
         subject-digest: ${{ steps.push-to-repo.outputs.digest }}
