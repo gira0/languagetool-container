@@ -20,6 +20,10 @@ COPY --chmod=755 startup.sh /opt/languagetool/startup.sh
 # minimal `ubi-micro` image doesn't need `useradd` (ubi-micro omits many tools).
 # Use a stable UID (10001) and set ownership here.
 RUN useradd -r -u 10001 -s /sbin/nologin lang && chown -R 10001:10001 /opt/languagetool
+# Ensure the JDK files (including security configs) are world-readable so a
+# non-root runtime user can read java.security and related files when the JDK
+# is copied into the minimal final image.
+RUN chmod -R a+rX /usr/lib/jvm || true
 
 FROM registry.access.redhat.com/ubi10/ubi-micro:10.1
 ARG LT_VER
@@ -29,5 +33,6 @@ COPY --from=runtimeprep /opt/languagetool /opt/languagetool
 # Run as the numeric UID created in the `runtimeprep` stage (no `useradd` needed).
 USER 10001
 EXPOSE 8080/tcp
-ENV PATH="/usr/lib/jvm/java-21-openjdk/bin:${PATH}"
+ENV JAVA_HOME="/usr/lib/jvm/java-21-openjdk"
+ENV PATH="$JAVA_HOME/bin:${PATH}"
 CMD ["/opt/languagetool/startup.sh"]
