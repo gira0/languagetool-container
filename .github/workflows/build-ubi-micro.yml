@@ -15,6 +15,7 @@ env:
 permissions:
   contents: read
   packages: write
+  security-events: write
 
 jobs:
   build:
@@ -68,6 +69,7 @@ jobs:
         ignore-unfixed: true
 
     - name: Upload Trivy scan results
+      if: "github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository"
       uses: github/codeql-action/upload-sarif@v4
       with:
         sarif_file: 'trivy-results.sarif'
