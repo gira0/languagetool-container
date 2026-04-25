@@ -30,6 +30,14 @@ ARG LT_VER
 COPY --from=runtimeprep /usr/lib/jvm /usr/lib/jvm
 COPY --from=runtimeprep /opt/languagetool /opt/languagetool
 
+# Build-time verification: ensure the copied JDK in the final minimal image can
+# run and can read its security configuration. If this fails, print the JDK
+# layout so CI logs contain diagnostics for troubleshooting.
+RUN /usr/lib/jvm/java-21-openjdk/bin/java -XshowSettings:properties -version \
+	|| (echo "java execution failed in final image; listing /usr/lib/jvm" && ls -lR /usr/lib/jvm || true) \
+	|| (echo "Printing java.security files:" && find /usr/lib/jvm -name java.security -exec ls -l {} \; -exec sed -n '1,40p' {} \; || true) \
+	|| (echo "Failing build due to java startup failure" && false)
+
 # Run as the numeric UID created in the `runtimeprep` stage (no `useradd` needed).
 USER 10001
 EXPOSE 8080/tcp
