@@ -1,5 +1,5 @@
 ARG LT_VER=6.4
-FROM registry.access.redhat.com/ubi10/ubi:10 as stage1
+FROM registry.access.redhat.com/ubi10/ubi:10.1 as stage1
 ARG LT_VER
 
 RUN dnf -y install git maven unzip java-17-openjdk-headless && dnf clean all
@@ -9,7 +9,7 @@ WORKDIR /opt/languagetool/
 # Build LanguageTool (skip tests to speed up CI)
 RUN mvn -q --projects languagetool-standalone --also-make package -DskipTests
 
-FROM registry.access.redhat.com/ubi10/ubi:10 as stage2
+FROM registry.access.redhat.com/ubi10/ubi:10.1 as stage2
 ARG LT_VER
 
 RUN dnf -y install java-17-openjdk-headless && dnf clean all
