@@ -58,7 +58,7 @@ jobs:
         registry: ${{ env.REGISTRY }}/${{ env.CONTAINER_REPO }}
 
     - name: Run Trivy vulnerability scanner
-      uses: aquasecurity/trivy-action@0.9.3
+      uses: aquasecurity/trivy-action@0.36.0
       with:
         image-ref: '${{ env.REGISTRY }}/${{ env.CONTAINER_REPO }}/${{ steps.build-image.outputs.image }}:ubi-micro'
         format: 'sarif'
