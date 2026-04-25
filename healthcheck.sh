@@ -25,16 +25,33 @@ echo "Using image: $image"
 # Run the podman container
 container_id=$(podman run -d --rm -p 8080:8080 "$image") || { echo "podman run failed"; exit 1; }
 
-# Wait for the container to start
-sleep 5
+# Wait/retry for the container to become healthy. Increase the timeout so Java
+# server has time to start in CI. Poll every INTERVAL seconds up to MAX_WAIT.
+INTERVAL=${INTERVAL:-5}
+MAX_WAIT=${MAX_WAIT:-90}
+elapsed=0
+status_code=000
 
-# Test the container via a curl API call
-status_code=$(curl -s -o response_body.json -w "%{http_code}" http://localhost:8080/v2/languages || true)
+echo "Waiting up to ${MAX_WAIT}s for HTTP 200 from container..."
+while [ $elapsed -lt $MAX_WAIT ]; do
+  status_code=$(curl -s -o response_body.json -w "%{http_code}" http://localhost:8080/v2/languages || true)
+  if [ "$status_code" -eq 200 ]; then
+    break
+  fi
+  sleep $INTERVAL
+  elapsed=$((elapsed + INTERVAL))
+done
 
-echo "Status code: $status_code"
+echo "Status code: $status_code (after ${elapsed}s)"
 
 if [ "$status_code" -ne 200 ]; then
-  echo "Failed to get a 200 status code"
+  echo "Failed to get a 200 status code within ${MAX_WAIT}s"
+  echo "=== Container logs (tail) ==="
+  podman logs --tail 200 "$container_id" || true
+  echo "=== End container logs ==="
+  echo "Podman ps -a (relevant lines):"
+  podman ps -a --filter id="$container_id" || true
+  podman inspect "$container_id" || true
   podman stop "$container_id" >/dev/null 2>&1 || true
   exit 1
 fi
@@ -47,6 +64,9 @@ COUNT=$(jq '. | length' response_body.json)
 
 if [ "$COUNT" -lt 50 ]; then
   echo "Language Count too low to be valid"
+  echo "=== Container logs (tail) ==="
+  podman logs --tail 200 "$container_id" || true
+  echo "=== End container logs ==="
   podman stop "$container_id" >/dev/null 2>&1 || true
   exit 1
 fi
