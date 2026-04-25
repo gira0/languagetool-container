@@ -22,8 +22,18 @@ fi
 
 echo "Using image: $image"
 
-# Run the podman container
-container_id=$(podman run -d --rm -p 8080:8080 "$image") || { echo "podman run failed"; exit 1; }
+# Run the podman container (do NOT auto-remove so logs remain available)
+container_id=$(podman run -d -p 8080:8080 "$image") || { echo "podman run failed"; exit 1; }
+echo "Started container: $container_id"
+
+# Ensure container is cleaned up on exit; but keep it available for logs while
+# the script runs.
+cleanup() {
+  if [ -n "${container_id:-}" ]; then
+    podman rm -f "$container_id" >/dev/null 2>&1 || true
+  fi
+}
+trap cleanup EXIT
 
 # Wait/retry for the container to become healthy. Increase the timeout so Java
 # server has time to start in CI. Poll every INTERVAL seconds up to MAX_WAIT.
@@ -38,6 +48,15 @@ while [ $elapsed -lt $MAX_WAIT ]; do
   if [ "$status_code" -eq 200 ]; then
     break
   fi
+  # If the container died, capture logs and fail early
+  state=$(podman inspect -f '{{.State.Status}}' "$container_id" 2>/dev/null || true)
+  if [ "$state" != "running" ]; then
+    echo "Container exited early with state: ${state:-<unknown>}"
+    echo "=== Container logs (tail) ==="
+    podman logs --tail 500 "$container_id" || true
+    echo "=== End container logs ==="
+    exit 1
+  fi
   sleep $INTERVAL
   elapsed=$((elapsed + INTERVAL))
 done
@@ -47,12 +66,11 @@ echo "Status code: $status_code (after ${elapsed}s)"
 if [ "$status_code" -ne 200 ]; then
   echo "Failed to get a 200 status code within ${MAX_WAIT}s"
   echo "=== Container logs (tail) ==="
-  podman logs --tail 200 "$container_id" || true
+  podman logs --tail 500 "$container_id" || true
   echo "=== End container logs ==="
   echo "Podman ps -a (relevant lines):"
   podman ps -a --filter id="$container_id" || true
   podman inspect "$container_id" || true
-  podman stop "$container_id" >/dev/null 2>&1 || true
   exit 1
 fi
 
@@ -65,11 +83,12 @@ COUNT=$(jq '. | length' response_body.json)
 if [ "$COUNT" -lt 50 ]; then
   echo "Language Count too low to be valid"
   echo "=== Container logs (tail) ==="
-  podman logs --tail 200 "$container_id" || true
+  podman logs --tail 500 "$container_id" || true
   echo "=== End container logs ==="
-  podman stop "$container_id" >/dev/null 2>&1 || true
   exit 1
 fi
 
-# Stop the container
-podman stop "$container_id"
+# Stop and remove the container
+podman stop "$container_id" >/dev/null 2>&1 || true
+podman rm -f "$container_id" >/dev/null 2>&1 || true
+trap - EXIT
