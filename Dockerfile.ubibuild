@@ -16,13 +16,18 @@ COPY --from=builder /opt/languagetool/languagetool-standalone/target/LanguageToo
 # copy the startup script from the source context
 COPY --chmod=755 startup.sh /opt/languagetool/startup.sh
 
+# Create a system user with a fixed UID in the runtimeprep stage so the final
+# minimal `ubi-micro` image doesn't need `useradd` (ubi-micro omits many tools).
+# Use a stable UID (10001) and set ownership here.
+RUN useradd -r -u 10001 -s /sbin/nologin lang && chown -R 10001:10001 /opt/languagetool
+
 FROM registry.access.redhat.com/ubi10/ubi-micro:10.1
 ARG LT_VER
 COPY --from=runtimeprep /usr/lib/jvm /usr/lib/jvm
 COPY --from=runtimeprep /opt/languagetool /opt/languagetool
 
-RUN useradd -r -s /sbin/nologin lang && chown -R lang:lang /opt/languagetool
-USER lang
+# Run as the numeric UID created in the `runtimeprep` stage (no `useradd` needed).
+USER 10001
 EXPOSE 8080/tcp
 ENV PATH="/usr/lib/jvm/java-21-openjdk/bin:${PATH}"
 CMD ["/opt/languagetool/startup.sh"]
