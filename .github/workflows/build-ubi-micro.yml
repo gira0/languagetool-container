@@ -37,6 +37,7 @@ jobs:
         image: languagetool-ubimicro
         tags: ubi-micro
         oci: true
+        extra-args: --ulimit nofile=65536:65536
         containerfiles: |
           ./Dockerfile.ubibuild
         build-args: |

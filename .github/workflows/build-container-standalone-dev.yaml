@@ -45,6 +45,7 @@ jobs:
         image: languagetool
         tags: dev dev-${{ steps.get-version.outputs.LT_VERSION }}
         oci: true
+        extra-args: --ulimit nofile=65536:65536
         containerfiles: |
           ./Containerfile
 
@@ -59,6 +60,7 @@ jobs:
         image: languagetool-ubimicro
         tags: dev-ubimicro dev-ubimicro-${{ steps.get-version.outputs.LT_VERSION }}
         oci: true
+        extra-args: --ulimit nofile=65536:65536
         containerfiles: |
           ./Dockerfile.ubibuild
         build-args: |

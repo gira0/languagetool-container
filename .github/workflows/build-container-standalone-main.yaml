@@ -37,6 +37,7 @@ jobs:
       with:
         image: languagetool
         tags: prod v${{ steps.get-version.outputs.LT_VERSION }}
+        extra-args: --ulimit nofile=65536:65536
         containerfiles: |
           ./Containerfile
 
