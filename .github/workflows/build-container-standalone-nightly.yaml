@@ -38,7 +38,7 @@ jobs:
           LT_VER=${{ steps.get-version.outputs.LT_VERSION }}
 
     - name: Run Healthcheck
-      run: bash -x ./healthcheck.sh ${{ steps.build-image.outputs.image }}
+      run: bash -x ./healthcheck.sh "${{ steps.build-image.outputs.image }}:nightly-${{ steps.get-version.outputs.LT_VERSION }}"
       shell: bash
 
     - name: Push To hub.docker.com
