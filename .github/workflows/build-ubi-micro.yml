@@ -1,0 +1,72 @@
+name: Build UBI-micro image (ubi-micro)
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - Dockerfile.ubibuild
+      - startup.sh
+      - scripts/**
+
+env:
+  REGISTRY: ghcr.io
+  CONTAINER_REPO: ${{ github.repository }}
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    name: Build and push ubi-micro image
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v6
+
+    - name: Get LanguageTool Version
+      id: get-version
+      run: |
+        LT_VER=$(sed -n -E 's|ARG LT_VER=(.*)$|\1|p' Containerfile)
+        echo "LT_VER=$LT_VER" >> $GITHUB_OUTPUT
+
+    - name: Buildah Action (build ubi-micro image)
+      id: build-image
+      uses: redhat-actions/buildah-build@v2
+      with:
+        image: languagetool-ubimicro
+        tags: ubi-micro
+        oci: true
+        containerfiles: |
+          ./Dockerfile.ubibuild
+        build-args: |
+          LT_VER=${{ steps.get-version.outputs.LT_VER }}
+
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v4
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Push To GitHub Container Registry
+      id: push-to-repo
+      uses: redhat-actions/push-to-registry@v2
+      with:
+        image: ${{ steps.build-image.outputs.image }}
+        tags: ${{ steps.build-image.outputs.tags }}
+        registry: ${{ env.REGISTRY }}/${{ env.CONTAINER_REPO }}
+
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@0.9.3
+      with:
+        image-ref: '${{ env.REGISTRY }}/${{ env.CONTAINER_REPO }}/${{ steps.build-image.outputs.image }}:ubi-micro'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+        severity: 'CRITICAL,HIGH'
+        ignore-unfixed: true
+
+    - name: Upload Trivy scan results
+      uses: github/codeql-action/upload-sarif@v4
+      with:
+        sarif_file: 'trivy-results.sarif'

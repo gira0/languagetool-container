@@ -1,0 +1,28 @@
+# syntax=docker/dockerfile:1.4
+ARG LT_VER=6.4
+
+FROM registry.access.redhat.com/ubi10/ubi:10.1 AS builder
+ARG LT_VER
+RUN dnf -y install git maven unzip java-21-openjdk-headless && dnf clean all
+RUN git clone --depth 1 https://github.com/languagetool-org/languagetool.git -b v${LT_VER} /opt/languagetool/
+WORKDIR /opt/languagetool/
+RUN mvn -q --projects languagetool-standalone --also-make package -DskipTests
+
+FROM registry.access.redhat.com/ubi10/ubi:10.1 AS runtimeprep
+ARG LT_VER
+# install only the runtime JDK into this intermediate image
+RUN dnf -y install java-21-openjdk-headless && dnf clean all
+COPY --from=builder /opt/languagetool/languagetool-standalone/target/LanguageTool-${LT_VER}/LanguageTool-${LT_VER}/ /opt/languagetool/
+# copy the startup script from the source context
+COPY --chmod=755 startup.sh /opt/languagetool/startup.sh
+
+FROM registry.access.redhat.com/ubi10/ubi-micro:10.1
+ARG LT_VER
+COPY --from=runtimeprep /usr/lib/jvm /usr/lib/jvm
+COPY --from=runtimeprep /opt/languagetool /opt/languagetool
+
+RUN useradd -r -s /sbin/nologin lang && chown -R lang:lang /opt/languagetool
+USER lang
+EXPOSE 8080/tcp
+ENV PATH="/usr/lib/jvm/java-21-openjdk/bin:${PATH}"
+CMD ["/opt/languagetool/startup.sh"]

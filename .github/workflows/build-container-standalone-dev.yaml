@@ -8,6 +8,7 @@ on:
 env:
   REGISTRY: ghcr.io
   CONTAINER_REPO: ${{ github.repository }}
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
 permissions:
   id-token: write
@@ -51,6 +52,22 @@ jobs:
       run: bash -x ./healthcheck.sh "${{ steps.build-image.outputs.image }}:dev-${{ steps.get-version.outputs.LT_VERSION }}"
       shell: bash
 
+    - name: Build ubi-micro image
+      id: build-ubimicro
+      uses: redhat-actions/buildah-build@v2
+      with:
+        image: languagetool-ubimicro
+        tags: dev-ubimicro dev-ubimicro-${{ steps.get-version.outputs.LT_VERSION }}
+        oci: true
+        containerfiles: |
+          ./Dockerfile.ubibuild
+        build-args: |
+          LT_VER=${{ steps.get-version.outputs.LT_VERSION }}
+
+    - name: Run ubi-micro Healthcheck
+      run: bash -x ./healthcheck.sh "${{ steps.build-ubimicro.outputs.image }}:dev-ubimicro-${{ steps.get-version.outputs.LT_VERSION }}"
+      shell: bash
+
     - name: Login to GitHub Container Registry
       uses: docker/login-action@v4
       with:
@@ -64,6 +81,14 @@ jobs:
       with:
         image: ${{ steps.build-image.outputs.image }}
         tags: ${{ steps.build-image.outputs.tags }}
+        registry: ${{ env.REGISTRY }}/${{ env.CONTAINER_REPO }}
+
+    - name: Push ubi-micro To GitHub Container Registry
+      id: push-ubimicro-to-repo
+      uses: redhat-actions/push-to-registry@v2
+      with:
+        image: ${{ steps.build-ubimicro.outputs.image }}
+        tags: ${{ steps.build-ubimicro.outputs.tags }}
         registry: ${{ env.REGISTRY }}/${{ env.CONTAINER_REPO }}
 
     - name: Generate artifact attestation and push
