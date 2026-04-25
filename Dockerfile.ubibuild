@@ -29,6 +29,10 @@ FROM registry.access.redhat.com/ubi10/ubi-micro:10.1
 ARG LT_VER
 COPY --from=runtimeprep /usr/lib/jvm /usr/lib/jvm
 COPY --from=runtimeprep /opt/languagetool /opt/languagetool
+# Ensure JDK and app files have permissive ownership/permissions for runtime.
+# Some minimal base images may omit tools; do this during build as root.
+RUN chown -R root:root /usr/lib/jvm /opt/languagetool || true && \
+	chmod -R a+rX /usr/lib/jvm /opt/languagetool || true
 
 # Build-time verification: ensure the copied JDK in the final minimal image can
 # run and can read its security configuration. If this fails, print the JDK
