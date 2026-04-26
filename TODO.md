@@ -3,7 +3,7 @@
 Goal: produce a lean, secure, production-ready container using RHEL UBI (prefer ubi-micro).
 
 1. Use UBI micro for runtime
-   - Switch final stage to a UBI micro/minimal base and pin the UBI version.
+   - Done: the final stage now uses a pinned UBI micro base.
 
 2. Build artifact in CI (recommended)
    - Build LanguageTool in GitHub Actions (JDK 21 + mvn -DskipTests), upload artifact, and copy into the image in a separate image-job.
@@ -12,7 +12,7 @@ Goal: produce a lean, secure, production-ready container using RHEL UBI (prefer 
    - Option: download the LanguageTool release archive from GitHub Releases during build and extract into /opt/languagetool.
 
 4. Harden startup.sh
-   - Add set -e, read PORT=${PORT:-8080}, accept JAVA_OPTS and LT_DATA_DIR, use exec java $JAVA_OPTS -cp ... and log startup.
+   - Done: startup now uses `set -eu`, honors `PORT`, and supports `JAVA_OPTS`.
 
 5. Provide OCI-compliant health probe approach
    - Do NOT add the Docker `HEALTHCHECK` instruction (Docker-specific; not part of the OCI image standard).
@@ -35,7 +35,7 @@ Goal: produce a lean, secure, production-ready container using RHEL UBI (prefer 
    - Expand README.md with quickstart, env vars (PORT, JAVA_OPTS, LT_DATA_DIR), docker/podman examples, volume mounts, and recommended resource limits.
 
 10. Healthcheck script polish
-   - Make healthcheck.sh detect docker vs podman, add retries, and avoid leaving temp files; parameterize port and expected language count. Perhaps rename to better reflect actual usage.
+   - Keep `healthcheck.sh` for CI validation; the runtime container now relies on an external probe instead of debug-heavy startup checks.
 
 11. Licensing & contributing
    - Add CONTRIBUTING.md and confirm license compatibility; add LICENSE if the repository needs one.

@@ -14,6 +14,8 @@ TODO Docu for options 😁
 
 This repository provides a rootless Buildah helper that builds a minimal `ubi-micro` image containing the built LanguageTool artifacts.
 
+The current `ubi-micro` image copies the JDK config tree needed by OpenJDK 21, so the final runtime no longer depends on debug-time probes or missing `find` tooling.
+
 Requirements:
 - `buildah` or `podman` installed (rootless mode)
 - `subuid`/`subgid` configured for your user

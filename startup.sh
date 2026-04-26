@@ -1,20 +1,16 @@
 #!/bin/sh
 
+set -eu
+
+PORT=${PORT:-8080}
+JAVA_OPTS=${JAVA_OPTS:-}
 DIR="/languagetool"
+APP_JAR="/opt/languagetool/languagetool-server.jar"
+
 if [ -d "$DIR" ]; then
   echo "${DIR} found! running with ngram data"
-  java -cp /opt/languagetool/languagetool-server.jar org.languagetool.server.HTTPServer --languageModel /languagetool --port 8080 --allow-origin '*' --public
-
-else
-  echo "${DIR} not found, running without ngram data"
-  # Debugging: print java home and security files to help diagnose java.security load errors
-  echo "DEBUG: JAVA_HOME=${JAVA_HOME:-/usr/lib/jvm/java-21-openjdk}"
-  echo "DEBUG: id:" $(id) || true
-  echo "DEBUG: ls -ld ${JAVA_HOME:-/usr/lib/jvm/java-21-openjdk} and security dir (if present)"
-  ls -ld ${JAVA_HOME:-/usr/lib/jvm/java-21-openjdk} || true
-  ls -ld ${JAVA_HOME:-/usr/lib/jvm/java-21-openjdk}/conf || true
-  ls -ld ${JAVA_HOME:-/usr/lib/jvm/java-21-openjdk}/conf/security || true
-  find ${JAVA_HOME:-/usr/lib/jvm/java-21-openjdk} -maxdepth 4 -name java.security -exec ls -l {} \; -exec sed -n '1,40p' {} \; || true
-  java -cp /opt/languagetool/languagetool-server.jar org.languagetool.server.HTTPServer --port 8080 --allow-origin '*' --public
-
+  exec java $JAVA_OPTS -cp "$APP_JAR" org.languagetool.server.HTTPServer --languageModel "$DIR" --port "$PORT" --allow-origin '*' --public
 fi
+
+echo "${DIR} not found, running without ngram data"
+exec java $JAVA_OPTS -cp "$APP_JAR" org.languagetool.server.HTTPServer --port "$PORT" --allow-origin '*' --public

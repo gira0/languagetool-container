@@ -21,19 +21,12 @@ if [[ -f Containerfile ]]; then
 fi
 
 echo "Attempting rootless build with: buildah bud -f $DOCKERFILE -t $TAG (LT_VER=${LT_VER:-default})"
+build_args=()
 if [[ -n "${LT_VER}" ]]; then
-  if buildah bud -f "$DOCKERFILE" --build-arg "LT_VER=$LT_VER" -t "$TAG" .; then
-    echo "Build succeeded: $TAG"
-    echo "Run to verify: podman run --rm -it $TAG java -version"
-    exit 0
-  fi
-else
-  if buildah bud -f "$DOCKERFILE" -t "$TAG" .; then
-    echo "Build succeeded: $TAG"
-    echo "Run to verify: podman run --rm -it $TAG java -version"
-    exit 0
-  fi
+  build_args+=(--build-arg "LT_VER=$LT_VER")
 fi
+
+if buildah bud -f "$DOCKERFILE" "${build_args[@]}" -t "$TAG" .; then
   echo "Build succeeded: $TAG"
   echo "Run to verify: podman run --rm -it $TAG java -version"
   exit 0
