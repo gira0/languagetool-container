@@ -32,7 +32,7 @@ jobs:
 
     - name: Buildah Action
       id: build-image
-      uses: redhat-actions/buildah-build@v2
+      uses: redhat-actions/buildah-build@v3
       with:
         image: languagetool
         tags: prod v${{ steps.get-version.outputs.LT_VERSION }}
