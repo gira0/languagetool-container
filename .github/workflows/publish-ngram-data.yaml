@@ -43,7 +43,7 @@ jobs:
             | sort -u > work/archives.txt
           test -s work/archives.txt
           while IFS= read -r archive; do
-            headers=$(curl -fsSLI --retry 3 --retry-all-errors "$DOWNLOAD_URL/$archive")
+            headers=$(curl -fsSLI --retry 3 --retry-all-errors "$DOWNLOAD_URL/$archive" | tr -d '\r')
             etag=$(printf '%s\n' "$headers" | awk 'tolower($1) == "etag:" { value=$2 } END { print value }')
             last_modified=$(printf '%s\n' "$headers" | awk 'tolower($1) == "last-modified:" { $1=""; sub(/^ /, ""); value=$0 } END { print value }')
             size=$(printf '%s\n' "$headers" | awk 'tolower($1) == "content-length:" { value=$2 } END { print value }')
@@ -52,14 +52,24 @@ jobs:
           done < work/archives.txt > work/remote-metadata.tsv
           jq -Rn '[inputs | split("\t") | {name: .[0], etag: .[1], last_modified: .[2], size: (.[3] | tonumber)}]' \
             < work/remote-metadata.tsv > work/remote-manifest.json
+          remote_metadata_sha256=$(sha256sum work/remote-manifest.json | cut -d' ' -f1)
           if oras manifest fetch "$ARTIFACT:latest" > work/previous-manifest.json 2>/dev/null \
-            && test "$(jq -r '.annotations["org.languagetool.ngrams.remote-metadata"] // empty' work/previous-manifest.json)" = "$(cat work/remote-manifest.json)"; then
+            && test "$(jq -r '.annotations["org.languagetool.ngrams.remote-metadata-sha256"] // empty' work/previous-manifest.json)" = "$remote_metadata_sha256"; then
             echo 'n-gram data is unchanged; publication skipped.'
             exit 0
           fi
           while IFS= read -r archive; do
             curl -fL --retry 3 --retry-all-errors \
               "$DOWNLOAD_URL/$archive" -o "work/source/$archive"
+            paths=$(unzip -Z1 "work/source/$archive")
+            while IFS= read -r path; do
+              case "$path" in
+                /*|..|../*|*/../*)
+                  echo "Unsafe ZIP path: $path" >&2
+                  exit 1
+                  ;;
+              esac
+            done <<< "$paths"
             unzip -q "work/source/$archive" -d work/data
           done < work/archives.txt
           find work/data -type f -print -quit | grep -q .
@@ -84,9 +94,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          remote_metadata_sha256=$(sha256sum work/remote-manifest.json | cut -d' ' -f1)
           oras push "$ARTIFACT:sha256-$(cat work/content-sha256)" \
             --artifact-type application/vnd.languagetool.ngrams.v1 \
-            --annotation "org.languagetool.ngrams.remote-metadata=$(cat work/remote-manifest.json)" \
+            --annotation "org.languagetool.ngrams.remote-metadata-sha256=$remote_metadata_sha256" \
             work/ngram-data.tar.gz:application/vnd.languagetool.ngrams.archive.v1+gzip \
             work/manifest.json:application/vnd.languagetool.ngrams.manifest.v1+json
           oras tag "$ARTIFACT:sha256-$(cat work/content-sha256)" latest

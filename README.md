@@ -43,8 +43,9 @@ ghcr.io/gira0/languagetool-container/languagetool-ngrams:latest
 The workflow also supports manual runs. It compares upstream `HEAD` metadata
 (`ETag`, modification time, and size) with the previously published manifest
 and skips the large downloads when the data has not changed. Downloaded
-archives are still checksummed before publication. Content-addressed tags use the form
-`sha256-<archive-content-hash>`.
+archives are still checksummed before publication. Content-addressed tags use
+the form `sha256-<tarball-content-hash>` and identify the bundled extracted
+data, not an individual ZIP archive.
 
 An OCI artifact is not mounted directly by Kubernetes. Pull and extract it in
 an init container into a shared volume, then mount that volume at
