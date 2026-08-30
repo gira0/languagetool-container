@@ -14,7 +14,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Run ShellCheck
-        uses: koalaman/shellcheck-action@v0.10.0
+        uses: ludeeus/action-shellcheck@2.0.0
         with:
           scandir: .
       - name: Run actionlint
