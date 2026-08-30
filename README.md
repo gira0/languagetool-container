@@ -31,6 +31,34 @@ podman run --rm -p 8080:8080 \
 
 Docker can be used in place of Podman in these commands.
 
+## n-gram data
+
+The weekly `Publish LanguageTool n-gram data` workflow downloads all ZIP
+archives listed at [the LanguageTool n-gram download page](https://languagetool.org/download/ngram-data/), validates and extracts them, and publishes an OCI artifact to:
+
+```text
+ghcr.io/gira0/languagetool-container/languagetool-ngrams:latest
+```
+
+The workflow also supports manual runs. It compares upstream `HEAD` metadata
+(`ETag`, modification time, and size) with the previously published manifest
+and skips the large downloads when the data has not changed. Downloaded
+archives are still checksummed before publication. Content-addressed tags use
+the form `sha256-<tarball-content-hash>` and identify the bundled extracted
+data, not an individual ZIP archive.
+
+An OCI artifact is not mounted directly by Kubernetes. Pull and extract it in
+an init container into a shared volume, then mount that volume at
+`/languagetool` in the LanguageTool container. For example, with ORAS:
+
+```sh
+oras pull ghcr.io/gira0/languagetool-container/languagetool-ngrams:latest
+tar -xzf ngram-data.tar.gz -C /path/to/ngrams
+```
+
+The GHCR package must be readable by the Kubernetes workload. For private
+packages, provide an appropriate GHCR pull secret to the ORAS init container.
+
 ## Building
 
 Build a specific LanguageTool release locally with:
