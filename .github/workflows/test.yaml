@@ -1,0 +1,26 @@
+name: Test shell scripts
+
+"on":
+  push:
+    branches:
+      - main
+      - dev
+  pull_request:
+
+jobs:
+  bats:
+    name: Bats tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Run ShellCheck
+        uses: koalaman/shellcheck-action@v0.10.0
+        with:
+          scandir: .
+      - name: Run actionlint
+        uses: raven-actions/actionlint@v2
+      - uses: bats-core/bats-action@3.0.1
+        with:
+          bats-version: 1.11.0
+      - name: Run Bats tests
+        run: bats tests
