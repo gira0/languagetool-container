@@ -19,7 +19,7 @@ jobs:
           scandir: .
       - name: Run actionlint
         uses: raven-actions/actionlint@v2
-      - uses: bats-core/bats-action@3.0.1
+      - uses: bats-core/bats-action@4.0.0
         with:
           bats-version: 1.11.0
       - name: Run Bats tests
