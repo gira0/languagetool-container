@@ -32,7 +32,8 @@ jobs:
       - name: Install ORAS
         uses: oras-project/setup-oras@v1
 
-      - name: Download n-gram archives
+      - name: Check and download n-gram archives
+        id: changes
         shell: bash
         run: |
           set -euo pipefail
@@ -56,25 +57,28 @@ jobs:
           if oras manifest fetch "$ARTIFACT:latest" > work/previous-manifest.json 2>/dev/null \
             && test "$(jq -r '.annotations["org.languagetool.ngrams.remote-metadata-sha256"] // empty' work/previous-manifest.json)" = "$remote_metadata_sha256"; then
             echo 'n-gram data is unchanged; publication skipped.'
-            exit 0
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            while IFS= read -r archive; do
+              curl -fL --retry 3 --retry-all-errors \
+                "$DOWNLOAD_URL/$archive" -o "work/source/$archive"
+              paths=$(unzip -Z1 "work/source/$archive")
+              while IFS= read -r path; do
+                case "$path" in
+                  /*|..|../*|*/../*)
+                    echo "Unsafe ZIP path: $path" >&2
+                    exit 1
+                    ;;
+                esac
+              done <<< "$paths"
+              unzip -q "work/source/$archive" -d work/data
+            done < work/archives.txt
+            find work/data -type f -print -quit | grep -q .
           fi
-          while IFS= read -r archive; do
-            curl -fL --retry 3 --retry-all-errors \
-              "$DOWNLOAD_URL/$archive" -o "work/source/$archive"
-            paths=$(unzip -Z1 "work/source/$archive")
-            while IFS= read -r path; do
-              case "$path" in
-                /*|..|../*|*/../*)
-                  echo "Unsafe ZIP path: $path" >&2
-                  exit 1
-                  ;;
-              esac
-            done <<< "$paths"
-            unzip -q "work/source/$archive" -d work/data
-          done < work/archives.txt
-          find work/data -type f -print -quit | grep -q .
 
       - name: Create content manifest
+        if: steps.changes.outputs.changed == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -91,6 +95,7 @@ jobs:
           sha256sum work/ngram-data.tar.gz | cut -d' ' -f1 > work/content-sha256
 
       - name: Publish OCI artifact
+        if: steps.changes.outputs.changed == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -101,3 +106,7 @@ jobs:
             work/ngram-data.tar.gz:application/vnd.languagetool.ngrams.archive.v1+gzip \
             work/manifest.json:application/vnd.languagetool.ngrams.manifest.v1+json
           oras tag "$ARTIFACT:sha256-$(cat work/content-sha256)" latest
+
+      - name: Report unchanged data
+        if: steps.changes.outputs.changed == 'false'
+        run: echo 'n-gram data is unchanged; no publication was needed.'
